@@ -58,7 +58,7 @@ if _n_ =11 then call symput('Rage', estimate);
 run;
 
 
- /* Assign hazard values to each participant in the dataset from which the propensity score was estimated*/
+ /* Step 3:  Assign hazard values to each participant in the dataset from which the propensity score was estimated*/
  
 data hazards5;
 set ready;
@@ -81,7 +81,7 @@ proc sort data=hazardsa5;
 by case;
 run;
 
-/* Identify the largest hazard score - this will become a propensity score of 1.0 */
+/* Step 3a:  Identify the largest hazard score - this will become a propensity score of 1.0 */
 proc means data=hazards5 ;
 output out=hazmax max=hazmax;
 var haz;
@@ -93,17 +93,19 @@ set hazmax;
 call symput('hazmax',hazmax);
 run;
 
+/* Step 3b:  Use the highest hazard score as the ceiling of a propensity score, and scale all lower scores*/
 data hazscore5;
 set hazards5;
 hazscore=(haz/&hazmax);
 run;
 
-/* Match cases to controls 1:1, with replacement - 
+/* Step 4:  Match cases to controls 1:1, with replacement - 
 1.  note that your case identifier must go in the class statement
 2.  You can force exact matching on some covariates, in our case we required a control to have a healthcare encounter to be within a 6-month window prior to a case's index surgical encounter
 3.  If you are doing 1:1 matching, I have observed SAS matching a single case to > 1 control if the control propensity scores are (a) close enough and (b) controls are sufficiently plentiful.  As a QC check, I recommend double check the number of participants with a _MatchID and ensure it is double the number of cases.    
 * /
 
+/* Step 5 (final):  Match cases to controls using hazard-derived propensity score specified above */
 proc psmatch data=hazscore5;
 class case matchtime;
 psdata treatvar=case(Treated="1") ps=hazscore;
@@ -112,4 +114,4 @@ assess ps var=(hazscore BMI Male Diabetes insulin Depression Dyslipidemia FattyL
 output out(obs=match)=haz100replace lps=_Lps matchid=_MatchID;
 run;
 
-/* 
+ 
